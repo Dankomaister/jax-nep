@@ -4,7 +4,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from .policy import PlannedNeighbors
-from .descriptors import geometry, descriptors
+from .descriptors import geometry, descriptors, prepare_basis, descriptors_from_basis, PairGeometry
 from .network import local_network
 from .zbl import local_zbl
 
@@ -33,18 +33,44 @@ class Energy:
         return descriptors(self.model, pairs, angular_pairs=angular)
 
     def local_energy(self, positions, *, neighbor, perturbation=None):
+        features, topology = self._prepare(positions, neighbor, perturbation)
+        return self._local_from_features(self.model, features, topology, perturbation)
+
+    def _prepare(self, positions, neighbor, perturbation=None):
         pairs, angular = self._pairs(positions, neighbor, perturbation)
         g = geometry(pairs)
-        q = descriptors(self.model, pairs, g, angular)
+        prepared = prepare_basis(self.model, pairs, g, angular)
+        # Only differentiable floating data crosses the shared VJP boundary.
+        # Connectivity and masks are auxiliary, and need no position cotangent.
+        topology = (pairs._replace(vectors=None),
+                    None if angular is None else angular._replace(vectors=None),
+                    g.positive)
+        return (prepared, g.distance), topology
+
+    def _local_from_features(self, model, features, topology, perturbation=None):
+        prepared, distance = features
+        pairs, angular, positive = topology
+        q = descriptors_from_basis(model, pairs, prepared, angular)
         local = local_network(
-            self.model,
+            model,
             q,
             self.provider.types,
             accumulation_dtype=jnp.float64 if perturbation is not None else None,
         )
-        if self.model.zbl is not None:
-            local += local_zbl(self.model, pairs, g)
+        if model.zbl is not None:
+            local += local_zbl(model, pairs, PairGeometry(distance, None, positive))
         return local
+
+    def apply(self, model, positions, *, neighbor, perturbation=None):
+        """Total energy with explicit fitted parameters, for jit/vmap/grad.
+
+        The model must retain this factory's static architecture and leaf shapes.
+        Changing structure requires a new neighbor/energy factory.
+        """
+        if model._structure != self.model._structure:
+            raise ValueError("model must share the energy factory's static structure")
+        features, topology = self._prepare(positions, neighbor, perturbation)
+        return jnp.sum(self._local_from_features(model, features, topology, perturbation))
 
     def __call__(self, positions, *, neighbor, perturbation=None):
         return jnp.sum(

@@ -16,7 +16,8 @@ def model(tmp_path):
 
 def test_exports():
     assert set(jax_nep.__all__) == {
-        'NEPModel', 'load_model', 'nep_neighbor_list', 'virial', 'stress'}
+        'NEPModel', 'load_model', 'nep_neighbor_list', 'virial', 'stress',
+        'ModelDeviation', 'nep_model_deviation', 'smooth_max'}
 
 
 @pytest.mark.parametrize('settings', [dict(skin=-1), dict(skin=np.nan),
