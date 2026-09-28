@@ -168,6 +168,9 @@ def load_model(path, *, dtype=np.float32):
             scale,
             table,
             numbers,
+            None if zbl is None else (
+                "flexible" if flexible else "typewise" if len(zbl) == 3 else "universal"
+            ),
         )
     except (IndexError, OverflowError, TypeError) as error:
         raise ValueError(f"malformed NEP4 file {path}: {error}") from error

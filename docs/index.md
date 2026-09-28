@@ -8,3 +8,5 @@
 - [Virial and stress](virial_stress.md): strain derivatives and sign conventions.
 - [Numerical behavior](numerical_behavior.md): precision, validity checks, and tests.
 - [Scientific references](reference.md): attribution and mathematical conventions.
+
+- [Ensemble model deviation and active learning](active.md)

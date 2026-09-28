@@ -12,7 +12,7 @@ FILES = ('.gitignore', '.gitattributes', 'LICENSE', 'README.md', 'pyproject.toml
          'MANIFEST.in', 'tools/make_release_tree.py', 'tools/extract_tables.py',
          'tools/extract_invariants.py', 'tests/tolerances.json')
 PATTERNS = ('src/jax_nep/*.py', 'tests/test_*.py', 'tests/conftest.py',
-            'tests/fixtures/*.npz', 'docs/*.md', 'examples/*.py')
+            'tests/fixtures/*.npz', 'tests/fixtures/active/*.npz', 'docs/*.md', 'examples/*.py')
 
 
 def export(destination):

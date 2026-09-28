@@ -37,9 +37,11 @@ def basis(distance, cutoff, order, valid):
     return 0.5 * (jnp.stack(polynomials, axis=0) + 1) * envelope[None]
 
 
-def descriptors(model, pairs, pair_geometry=None, angular_pairs=None):
+def prepare_basis(model, pairs, pair_geometry=None, angular_pairs=None):
+    """Model-independent basis and harmonics for a fixed NEP architecture."""
     g = geometry(pairs) if pair_geometry is None else pair_geometry
     ti, tj = pairs.central_types, pairs.neighbor_types
+    functions = []
     for domain in range(2):
         if domain == 1 and angular_pairs is not None:
             pairs = angular_pairs
@@ -48,6 +50,17 @@ def descriptors(model, pairs, pair_geometry=None, angular_pairs=None):
         radii = jnp.asarray(model.cutoffs[:, domain])
         cutoff = 0.5 * (radii[ti] + radii[tj])
         fn = basis(g.distance, cutoff, model.basis_orders[domain], pairs.valid)
+        functions.append(fn)
+    return (*functions, harmonics(g.direction, model.l_max))
+
+
+def descriptors_from_basis(model, pairs, prepared, angular_pairs=None):
+    """Apply fitted projections, invariants, and scaling to shared basis data."""
+    for domain in range(2):
+        if domain == 1 and angular_pairs is not None:
+            pairs = angular_pairs
+        ti, tj = pairs.central_types, pairs.neighbor_types
+        fn = prepared[domain]
         table = model.coefficients[domain]
         table = table.reshape(-1, *table.shape[2:])
         parts = [
@@ -64,13 +77,18 @@ def descriptors(model, pairs, pair_geometry=None, angular_pairs=None):
         else:
             angular = parts[0]
 
-    y = harmonics(g.direction, model.l_max)
+    y = prepared[2]
     if pairs.centers is None:
         moments = jnp.einsum("ijc,hij->ich", angular, y, precision="highest")
     else:
         moments = reduce_neighbors(angular[..., None] * y.T[:, None, :], pairs)
     q = invariants(moments, model.l_max, model.invariants).reshape(len(radial), -1)
     return jnp.concatenate((radial, q), axis=-1) * jnp.asarray(model.scale)
+
+
+def descriptors(model, pairs, pair_geometry=None, angular_pairs=None):
+    prepared = prepare_basis(model, pairs, pair_geometry, angular_pairs)
+    return descriptors_from_basis(model, pairs, prepared, angular_pairs)
 
 
 def reduce_neighbors(values, pairs):

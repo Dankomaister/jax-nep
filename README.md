@@ -11,6 +11,8 @@ energies, forces, and configurational virial/stress.
 - Virial and stress through affine-strain autodiff.
 - Native JAX-MD neighbor lists with automatic STANDARD/MULTI_IMAGE periodic handling.
 - JIT and GPU execution, with float32 as the default.
+- Vectorized ensemble force deviation and differentiable active-learning scores.
+- Fitted model parameters as JAX PyTree leaves for parameter autodiff.
 
 ## Installation
 
@@ -174,6 +176,9 @@ The top-level package exports:
 ```python
 from jax_nep import (
     NEPModel,
+    ModelDeviation,
+    nep_model_deviation,
+    smooth_max,
     load_model,
     nep_neighbor_list,
     stress,
@@ -181,7 +186,8 @@ from jax_nep import (
 )
 ```
 
-See the [public API documentation](docs/api.md) for details.
+See the [public API documentation](docs/api.md) for details and
+[ensemble model deviation](docs/active.md) for committee scoring and its equations.
 
 ## Testing
 

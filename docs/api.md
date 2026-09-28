@@ -1,7 +1,8 @@
 # Public API
 
 The stable top-level exports are `NEPModel`, `load_model`, `nep_neighbor_list`,
-`virial`, and `stress`. Import these from `jax_nep`. There is no `load_nep` alias.
+`virial`, `stress`, `ModelDeviation`, `nep_model_deviation`, and `smooth_max`.
+Import these from `jax_nep`. There is no `load_nep` alias.
 Internal implementation classes and modules are not part of the stable API.
 
 ## `load_model(path, *, dtype=numpy.float32) -> NEPModel`
@@ -62,11 +63,12 @@ Reallocate outside JIT with enough headroom and retry from a valid state.
 
 | Call | Return shape and units |
 |---|---|
+| `energy_fn.apply(model, R, *, neighbor)` | Scalar energy with explicit fitted parameters, eV |
 | `energy_fn(R, *, neighbor)` | Scalar total potential energy, eV |
 | `energy_fn.local_energy(R, *, neighbor)` | `(N,)` local energies including ZBL, eV |
 | `energy_fn.descriptors(R, *, neighbor)` | `(N, model.dimension)` scaled descriptors |
 
-All three support JIT. Use `-jax.grad` of total energy for `(N, 3)` forces in
+All four support JIT. Use `-jax.grad` of total energy for `(N, 3)` forces in
 eV/Angstrom; neighbor connectivity is supplied explicitly. Descriptors are
 scaled by the fitted scaler and ordered radial first, then angular invariants.
 An optional `perturbation` keyword accepts a `(3, 3)` deformation matrix acting
@@ -86,3 +88,10 @@ eV/Angstrom³: `-virial / volume`. Supply the positive physical cell volume in
 Angstrom³, normally `abs(det(cell))`; volume is not inferred or validated by
 this helper. No kinetic contribution is included. See
 [virial and stress conventions](virial_stress.md).
+
+## Active learning and smooth math
+
+See [ensemble model deviation](active.md) for the committee factory, minimal
+`ModelDeviation` result, force evaluation, and generic `smooth_max` utility.
+See [parameter PyTrees](models.md#parameter-pytree-and-explicit-model-energy)
+for differentiation with respect to fitted parameters.

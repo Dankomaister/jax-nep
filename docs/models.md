@@ -38,3 +38,37 @@ explicitly. Missing files raise the usual filesystem error.
 The parsed `NEPModel` is frozen and its parameter arrays are read-only. Treat it
 as immutable. It contains model data, independent of a particular simulation.
 For mathematical conventions and attribution, see [references](reference.md).
+
+## Parameter PyTree and explicit-model energy
+
+`NEPModel` is a registered JAX PyTree. Its fitted leaves are `input_weights`,
+`hidden_bias`, `output_weights`, `output_bias`, the two `coefficients` arrays,
+`scale`, and (only in flexible ZBL mode) `zbl`. Species, atomic numbers, cutoffs,
+orders, invariant definitions, ZBL mode and fixed ZBL tables remain static.
+Loaded parameter arrays retain their dtype and read-only NumPy representation;
+JAX transformations produce device-array leaves without changing static metadata.
+
+The existing energy callable remains bound to its original model.
+`energy_fn.apply(model, R, neighbor=neighbor)` instead accepts fitted parameters
+explicitly, using the same physical kernels and fixed neighbor architecture:
+
+```python
+import jax
+import jax.numpy as jnp
+from jax_nep import load_model, nep_neighbor_list
+
+model = load_model("nep.txt")
+R = jnp.array([[0., 0., 0.], [1.4, .2, .1]], dtype=jnp.float32)
+provider, energy_fn = nep_neighbor_list(model, 12., model.map_species(["C", "C"]))
+neighbor = provider.allocate(R)
+parameter_gradient = jax.jit(jax.grad(
+    lambda m: energy_fn.apply(m, R, neighbor=neighbor)
+))(model)
+```
+
+The gradient has the same fitted-leaf tree. Use `dataclasses.replace` to update
+selected fields, or named paths from `jax.tree_util.tree_flatten_with_path` for
+parameter masks. Parameter updates must preserve architecture and leaf shapes;
+new structure requires a new factory. Future fitting code must enforce physical
+constraints such as positive scales and valid flexible-ZBL radii. No optimizer or
+training pipeline is provided.
